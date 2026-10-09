@@ -1,0 +1,9 @@
+{
+  "name": "Aroha — Your growth starts here",
+  "short_name": "Aroha",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f7f5ed",
+  "theme_color": "#f7f5ed",
+  "description": "A calm daily growth companion."
+}
