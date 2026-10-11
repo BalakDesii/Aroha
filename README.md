@@ -1,38 +1,58 @@
-# Aroha Mini App — V1 starter
+# Aroha genuine live dashboard — integration package
 
-A mobile-first cream-and-sage Telegram Mini App UI for the existing Aroha / ChallengeV2 bot.
+This package adds a secure read API to the existing GitHub Pages Mini App. It does **not** replace the TBC bot database or the existing `/daily` scoring engine.
 
-## What works now
-- Responsive home screen, progress ring, task controls, challenge card, navigation, preview state.
-- Uses Telegram Web Apps SDK and calls `Telegram.WebApp.sendData()` when launched inside Telegram.
-- Sends selected task IDs and values only. The bot must validate the payload and calculate actual rewards server-side.
-- No API token, Groq key, webhook secret, or bot credentials are included in these frontend files.
+## What it will show once connected
+- Real check-in activity from the existing `checkin_activities` collection.
+- Today’s activities and recent history.
+- The user’s active challenge, day, level and challenge progress.
+- Today’s points computed from the synced preset rules using the rule types in the exported `/daily` command.
 
-## Important: not yet a fully live integration
-Your uploaded TBC docs confirm `libs.Webhook.getUrlFor(...)`, incoming webhook `options`, `HTTP` helpers, and persistent `Bot.getData` / `Bot.saveData`. They do **not** document browser CORS, webhook response-body behavior, or confirm the exact Mini App button support exposed by your current TBC wrapper. This package therefore does not pretend to read live challenge data or claim check-ins are saved just because the UI button was tapped.
+## Architecture
+- GitHub Pages serves the frontend only.
+- A Cloudflare Worker provides the read API and stores user-filtered snapshots in Cloudflare KV.
+- The Worker validates Telegram Mini App `initData` with a server-side bot-token secret. The browser never receives the bot token or sync secret.
+- TBC posts only the current user’s activity/membership/challenge snapshot to `/sync` using a server-side shared secret.
+- TBC remains the source of truth. No client-supplied XP is saved.
 
-The current app sends check-ins through Telegram's Mini App `sendData` channel. TBC needs a receiver that safely reads Telegram's `web_app_data`, validates the user's task IDs/values, and calls/reuses the established check-in/scoring engine. Then a separate verified read path is needed for live challenge status/history. Do not overwrite the existing challenge collections or create a duplicate points database.
+## 1. Deploy the Worker (free tier)
+1. In Cloudflare dashboard, create a Worker named `aroha-dashboard-api`.
+2. Paste `cloudflare-worker.js` as the Worker code and deploy.
+3. Create a KV namespace named `AROHA_DATA`; bind it to the Worker under the variable name `AROHA_DATA`.
+4. In Worker Settings → Variables and Secrets, add these **secrets**:
+   - `BOT_TOKEN`: your Telegram bot token (secret, server-side only).
+   - `SYNC_SECRET`: a long random secret you create (at least 32 random characters).
+5. Add variable `ALLOWED_ORIGIN` = `https://balakdesii.github.io`.
+6. Copy the Worker URL, e.g. `https://aroha-dashboard-api.<your-subdomain>.workers.dev`.
+7. Open `https://YOUR-WORKER-URL/health`; it should return `{"ok":true,"service":"aroha-dashboard-api"}`.
 
-## Canonical Aroha data to preserve
-- `challenge_presets`
-- `challenge_instances`
-- `challenge_memberships` (support `instance_id` and legacy `challenge_id`)
-- `task_list`
-- `checkin_activities`
-- Existing `/checkin`, `/ci`, `/daily`, `/history`, `/overall`, `/scoreboard`
+Do not paste either secret into `api-config.js`, GitHub Pages, or any public repository.
 
-## Free static hosting: GitHub Pages
-1. Create a GitHub repository called `aroha-miniapp`.
-2. Upload the files in this folder to the repository root.
-3. Repository Settings → Pages → deploy from branch → `main` → `/ (root)`.
-4. Wait for GitHub to show the public HTTPS Pages URL.
-5. Keep all secrets out of the repository.
+## 2. Configure the frontend
+Open `api-config.js`, replace `PASTE_YOUR_CLOUDFLARE_WORKER_URL_HERE` with the deployed Worker URL, then upload the updated app files to the root of the existing `balakdesii.github.io/Aroha` GitHub Pages repository. Keep the Worker file out of the public site only if you prefer; it contains no secrets, but it belongs in the Worker editor.
 
-## Telegram opening button
-Use a Telegram Web App button (inline keyboard or menu button) pointing to the HTTPS Pages URL. The supplied docs list `set_chat_menu_button` among Bot API methods, but do not provide a TBC-specific example for setting a Web App button; verify the exact method/wrapper in TBC before editing production `/start`.
+## 3. Add the TBC sync block
+Open `TBC_LIVE_SYNC_BLOCK.txt`. Replace the two placeholders. For the first import of existing data, add `AROHA_SYNC_COMMAND.py.txt` as a `/aroha_sync` command, replacing its placeholders too, and run `/aroha_sync` in Telegram once:
+- Worker URL
+- same `SYNC_SECRET` value configured in Cloudflare
 
-## Before calling it live
-- Add a secure receiver that identifies the Telegram user from the actual Telegram update, not from a JavaScript-supplied user ID.
-- Reuse the existing check-in schema and scoring engine; client-supplied XP must never be trusted.
-- Read dashboard/challenge/history data only for the authenticated user.
-- Test one activity and confirm it agrees with `/ci`, `/daily`, `/history`, and group scoreboard where applicable.
+Paste the block **after successful storage writes** in these places:
+1. In the `*` universal command’s existing `web_app_data` receiver, immediately after `Bot.saveData("checkin_activities", activities)` and after the duplicate-submission key is saved.
+2. In `/ci`, after a check-in activity has been saved to `checkin_activities`.
+3. In `*`, at the end of the `if update_type == "callback_query":` branch, so challenge create/join/leave actions refresh the snapshot. The callback branch already defines `user_id` as a string.
+
+If your `/ci` code uses a different local variable name than `user_id`, set `user_id = str(message.from_user.id)` immediately before the pasted block. Do not replace the existing scoring logic or other command code.
+
+The sync block filters records to the current Telegram user before sending them. A sync failure is swallowed so the normal bot commands keep working.
+
+## 4. Publish and test
+1. Upload the updated frontend files to GitHub Pages.
+2. Open `/app` from inside Telegram (not a normal browser tab).
+3. The status should change to `Connected · Live data from your Aroha bot` after the Worker has a snapshot for that user.
+4. Add the included `AROHA_SYNC_COMMAND.py.txt` as a temporary `/aroha_sync` TBC command and run it once to seed your existing data. Keep the automatic sync blocks installed for future check-ins/challenge changes.
+5. Compare today’s points with `/daily`. If a custom rule type exists beyond `linear_floor`, `unit_threshold`, `threshold`, `boolean`, and `efficiency_bracket`, extend the Worker scorer to match it before relying on the dashboard score.
+
+## Important limitations
+- I cannot deploy to your Cloudflare or GitHub accounts from this chat, and I have not claimed this is live until you deploy the Worker and paste the TBC sync blocks.
+- The supplied TBC PDF documents webhook generation and HTTP helpers but does not document a browser-readable JSON response contract for TBC webhooks. This package uses a separate Worker rather than assuming that undocumented behavior.
+- Snapshots refresh when the sync block runs. Install it in the listed write paths; otherwise the dashboard will be stale.
