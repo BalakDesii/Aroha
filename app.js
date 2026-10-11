@@ -12,6 +12,8 @@
     {id:'T009',name:'Daily reflection',detail:'Pause and review',icon:'✍️',unit:'boolean',value:0}
   ];
   const $tasks = tasks.map(t => ({...t}));
+  let liveData = null;
+  const apiBase = String(window.AROHA_API_BASE || '').replace(/\/$/, '');
   const firstName = tg?.initDataUnsafe?.user?.first_name || '';
   if (firstName) $('profile').textContent = '🌱';
   const fmt = new Intl.DateTimeFormat('en-IN',{weekday:'long',day:'numeric',month:'long',timeZone:'Asia/Kolkata'}).format(new Date());
@@ -29,7 +31,64 @@
       return `<article class="task ${isDone?'done':''}"><div class="task-icon">${t.icon}</div><div class="task-copy"><b>${escapeHtml(t.name)}</b><span>${escapeHtml(t.detail)} · ${escapeHtml(valueText(t))}</span></div><div class="controls">${controls}</div></article>`;
     }).join('');
     const count=$tasks.filter(done).length,pct=Math.round(count/$tasks.length*100);const xp=$tasks.reduce((s,t)=>s+(done(t)?(t.unit==='intensity'?Number(t.value):t.unit==='hours'?Number(t.value):t.unit==='minutes'?Math.min(3,Number(t.value)/10):t.unit==='litres'?.5:.5):0),0);
-    $('ring').style.setProperty('--pct',pct);$('percent').textContent=`${pct}%`;$('doneCount').innerHTML=`${count} <small>/ ${$tasks.length}</small>`;$('xp').textContent=`${xp.toFixed(xp%1?1:0)} XP`;$('points').textContent=`${xp.toFixed(xp%1?1:0)} XP`;$('momentum').textContent=count===0?'Start with one small step.':count===$tasks.length?'You showed up fully.':"You're showing up.";
+    $('ring').style.setProperty('--pct',liveData ? Number(liveData.today_completion_pct || 0) : pct);$('percent').textContent=`${liveData ? Number(liveData.today_completion_pct || 0) : pct}%`;
+    $('doneCount').innerHTML=liveData ? `${Number(liveData.today_activity_count || 0)} <small>activities</small>` : `${count} <small>/ ${$tasks.length}</small>`;
+    $('xp').textContent=liveData ? `${fmtNum(liveData.today_points || 0)} XP` : '—';
+    $('points').textContent=liveData ? `${fmtNum(liveData.today_points || 0)} XP` : '— XP';
+    $('momentum').textContent=liveData ? (Number(liveData.today_activity_count || 0) ? 'You showed up today.' : 'Start with one small step.') : (count===0?'Start with one small step.':count===$tasks.length?'You showed up fully.':"You're showing up.");
+    $('streak').textContent=liveData && liveData.streak_days != null ? `${liveData.streak_days} days` : '—';
+  }
+  function fmtNum(v){const n=Number(v||0);return Number.isInteger(n)?String(n):n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');}
+  function renderLive(data){
+    liveData=data;
+    $('connectionText').textContent='Connected · Live data from your Aroha bot';
+    $('connection').classList.add('connected');
+    $('saveStatus').textContent='Check-ins are sent to Telegram; this dashboard reads your saved bot records.';
+    const activities=Array.isArray(data.recent_activities)?data.recent_activities:[];
+    const today=Array.isArray(data.today_activities)?data.today_activities:[];
+    const completion=Number(data.today_completion_pct||0);
+    $('ring').style.setProperty('--pct',completion);$('percent').textContent=`${completion}%`;
+    $('doneCount').innerHTML=`${today.length} <small>activities</small>`;
+    $('xp').textContent=`${fmtNum(data.today_points||0)} XP`;
+    $('streak').textContent=data.streak_days==null?'—':`${data.streak_days} days`;
+    $('momentum').textContent=today.length?'You showed up today.':'Start with one small step.';
+    if(data.challenge){
+      const c=data.challenge;
+      $('challengeName').textContent=c.name||'Your challenge';
+      $('day').innerHTML=`Day ${Number(c.day||1)} <small>/ ${Number(c.duration||90)}</small>`;
+      $('level').textContent=c.level_name||`Level ${c.level_number||1}`;
+      $('points').textContent=`${fmtNum(c.points_today||0)} XP`;
+      $('bar').style.width=`${Math.max(0,Math.min(100,Number(c.progress_pct||0)))}%`;
+      $('challengeDates').textContent=c.start_date?`Started ${c.start_date}${c.end_date?' · Ends '+c.end_date:''}`:'Live challenge data';
+      const pill=document.querySelector('#challenge .pill'); if(pill)pill.textContent=`${Number(c.duration||90)} DAYS`;
+    } else {
+      $('challengeName').textContent='No active challenge';$('day').innerHTML='—';$('level').textContent='Not enrolled';$('points').textContent=`${fmtNum(data.today_points||0)} XP`;$('bar').style.width='0%';$('challengeDates').textContent='Your check-ins are still saved without an active challenge.';
+    }
+    if(activities.length){
+      $('historyList').innerHTML=activities.slice(0,12).map(a=>{
+        const d=a.timestamp?new Date(Number(a.timestamp)*1000):null;
+        const when=d?new Intl.DateTimeFormat('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}).format(d):'Saved activity';
+        const detail=a.value && String(a.unit)==='intensity'?String(a.value):`${fmtNum(a.amount)} ${a.unit||''}`.trim();
+        return `<article class="history-item"><span class="history-mark">✳</span><div><b>${escapeHtml(a.task||a.task_id||'Activity')}</b><small>${escapeHtml(detail)} · ${escapeHtml(when)}</small></div></article>`;
+      }).join('');
+    } else {
+      $('historyList').innerHTML='<div class="empty"><span>✳</span><b>Your story starts here.</b><p>No saved check-ins found yet.</p></div>';
+    }
+    render();
+  }
+  async function loadLiveDashboard(){
+    const configured=apiBase && !apiBase.includes('PASTE_YOUR_');
+    const initData=tg && tg.initData ? tg.initData : '';
+    if(!configured){$('connectionText').textContent='Backend setup required · dashboard is not live yet';$('saveStatus').textContent='Deploy the included API and configure api-config.js to load real bot data.';return;}
+    if(!initData){$('connectionText').textContent='Open inside Telegram to securely load your personal data';return;}
+    try{
+      const response=await fetch(`${apiBase}/api/dashboard`,{method:'GET',headers:{'Authorization':`tma ${initData}`,'Accept':'application/json'}});
+      if(!response.ok)throw new Error(response.status===401?'Telegram session could not be verified':'Dashboard API returned '+response.status);
+      const result=await response.json();
+      if(!result || result.ok!==true || !result.dashboard)throw new Error('Dashboard response was incomplete');
+      if(result.synced===false){renderLive(result.dashboard);$('connectionText').textContent='API ready · waiting for the first TBC data sync';$('connection').classList.remove('connected');$('saveStatus').textContent='Run /aroha_sync once, then install the automatic sync blocks for future updates.';return;}
+      renderLive(result.dashboard);
+    }catch(err){$('connectionText').textContent='Live data unavailable · '+String(err.message||err);$('saveStatus').textContent='Your check-in controls still send to Telegram, but this view is not connected to live records.';}
   }
   $('tasks').addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b)return;const t=$tasks[Number(b.dataset.i)];if(!t)return;switch(b.dataset.action){case'toggle':t.value=t.value?0:1;break;case'minus':t.value=Math.max(0,Number((Number(t.value)-t.step).toFixed(2)));break;case'plus':t.value=Number((Number(t.value)+t.step).toFixed(2));break;}render();});
   $('tasks').addEventListener('change',e=>{const s=e.target.closest('select[data-action="intensity"]');if(!s)return;$tasks[Number(s.dataset.i)].value=Number(s.value);render();});
@@ -46,4 +105,5 @@
   $('profile').addEventListener('click',()=>showToast(firstName?`Telegram Mini App · ${firstName}`:'Open this app from Telegram for account context.'));
   document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.nav button').forEach(n=>n.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.go).scrollIntoView({behavior:'smooth',block:'start'});}));
   render();
+  loadLiveDashboard();
 })();
