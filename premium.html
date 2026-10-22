@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Aroha — Premium Dashboard</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0b10;--panel:#12141c;--panel2:#171a24;--card:#11131a;--line:#232635;--muted:#9aa0b8;--muted2:#c7ccde;--text:#eef2ff;--accent:#7c5cff;--accent2:#2dd4bf;--ok:#22c55e;--warn:#f59e0b;--radius:18px;--radius2:14px}
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+a{color:inherit}
+.app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+.sidebar{background:linear-gradient(180deg,#0f1220 0%,#0c0e16 100%);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;padding:18px 14px;display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 6px 10px}
+.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#7c5cff 0%,#2dd4bf 100%);display:grid;place-items:center;font-family:Plus Jakarta Sans,Inter,sans-serif;font-weight:800;font-size:22px;box-shadow:0 10px 30px rgba(124,92,255,.35)}
+.brand h1{font-family:Plus Jakarta Sans,Inter,sans-serif;margin:0;font-size:18px;letter-spacing:.2px;font-weight:800}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.nav{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.nav button{width:100%;display:flex;align-items:center;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid transparent;background:transparent;color:var(--muted2);font-weight:600;cursor:pointer;text-align:left}
+.nav button.active{background:linear-gradient(135deg,rgba(124,92,255,.18),rgba(45,212,191,.12));border-color:rgba(124,92,255,.35);color:white;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.nav button span.ic{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#1a1d2b;border:1px solid var(--line);font-size:14px}
+.side-foot{margin-top:auto;padding:10px 6px;color:var(--muted);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.main{padding:18px 18px 28px;max-width:1180px;width:100%;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.hamburger{display:none;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:white;display:none;place-items:center}
+.title{font-family:Plus Jakarta Sans,Inter,sans-serif;font-size:24px;font-weight:800;letter-spacing:.2px}
+.subtitle{color:var(--muted);font-size:13px;margin-top:4px}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--panel) 0%,#0f121a 100%);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.card h3{margin:0 0 10px;font-size:14px;letter-spacing:.3px;color:var(--muted2);text-transform:uppercase}
+.userblock{display:flex;align-items:center;gap:14px}
+.avatar{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#2dd4bf 0%,#7c5cff 100%);display:grid;place-items:center;font-weight:800;font-size:20px;color:white;flex:0 0 56px}
+.userblock h2{margin:0;font-size:18px}
+.userblock p{margin:3px 0 0;color:var(--muted);font-size:12px;font-family:JetBrains Mono,monospace}
+.idrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.tag{background:#0f111a;border:1px solid var(--line);color:var(--muted2);padding:6px 10px;border-radius:999px;font-size:12px}
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.kpi{background:#0f1220;border:1px solid var(--line);border-radius:14px;padding:12px}
+.kpi b{font-size:22px;display:block}.kpi span{color:var(--muted);font-size:11px;letter-spacing:.3px;text-transform:uppercase}
+.ring-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:100%}
+.ring{--p:0;--size:156px;--w:12px;width:var(--size);height:var(--size);border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%), #232635 0);display:grid;place-items:center;position:relative}
+.ring::before{content:"";position:absolute;inset:var(--w);background:var(--panel);border-radius:50%;border:1px solid var(--line)}
+.ring > div{position:relative;z-index:1}
+.ring b{font-size:28px}
+.ring small{color:var(--muted);font-size:12px}
+.btn{appearance:none;border:0;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
+.btn-prim{background:linear-gradient(135deg,#7c5cff,#5b8cff);color:white;box-shadow:0 10px 30px rgba(124,92,255,.4)}
+.btn-ghost{background:#0f1220;color:white;border:1px solid var(--line)}
+.btn-block{width:100%}
+.stack{display:grid;gap:10px}
+.tabbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.tabbar button{flex:1;min-width:120px}
+.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:980px){.quick-grid{grid-template-columns:1fr 1fr}}
+.quick-btn{padding:14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,#171a24,#12141c);color:white;font-weight:700;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left}
+.quick-btn small{color:var(--muted);font-weight:500}
+.chartwrap{position:relative;height:220px}
+.tasks{max-height:420px;overflow:auto}
+.task{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid var(--line);background:#0f1220;border-radius:12px;margin:8px 0}
+.hist-group{margin:12px 0}
+.hist-group h4{margin:0 0 6px;color:var(--muted2);font-size:13px}
+.hist-item{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);background:#0f1220;border-radius:12px;margin:6px 0;font-size:13px}
+.journal{padding:12px;border:1px solid var(--line);background:#0f1220;border-radius:12px;margin:8px 0}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#111827;color:white;padding:10px 14px;border-radius:999px;border:1px solid var(--line);display:none;z-index:99;max-width:92%;text-align:center}
+.err{display:none;background:#2a1320;border:1px solid #7f1d1d;color:#fecaca;padding:10px;border-radius:12px;white-space:pre-wrap;word-break:break-word;font-size:12px;margin:10px 0}
+/* mobile shell */
+@media(max-width:860px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;z-index:50;transform:translateX(-100%);transition:.25s;width:86%;max-width:320px}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:grid}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+  .overlay.show{display:block}
+}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="overlay" id="overlay" onclick="toggleSide(false)"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="logo">A</div><div><h1>Aroha</h1><p>Premium Dashboard</p></div></div>
+    <div class="nav">
+      <button class="active" data-tab="home" onclick="go('home')"><span class="ic">⌂</span> Home</button>
+      <button data-tab="checkin" onclick="go('checkin')"><span class="ic">✓</span> Check-in</button>
+      <button data-tab="history" onclick="go('history')"><span class="ic">◷</span> History</button>
+      <button data-tab="journal" onclick="go('journal')"><span class="ic">✎</span> Journal</button>
+    </div>
+    <div class="side-foot">
+      <div style="margin-bottom:8px"><span class="pill">● Live</span> <span style="margin-left:8px" id="chalNameSide">Aroha Daily Practice</span></div>
+      <div class="muted" style="font-size:11px">One challenge for now — generalize later.</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="hamburger" onclick="toggleSide()" aria-label="menu">☰</button>
+        <div>
+          <div class="title" id="pageTitle">Home</div>
+          <div class="subtitle" id="pageSub">Your growth, beautifully tracked.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="pill" id="statusPill">● Live</span>
+        <button class="btn btn-ghost" onclick="reloadAll()">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="err" class="err"></div>
+    <!-- HOME -->
+    <section id="tab-home">
+      <div class="grid" style="margin-top:14px">
+        <div class="card">
+          <h3>Your profile</h3>
+          <div class="userblock">
+            <div class="avatar" id="avatar">A</div>
+            <div>
+              <h2 id="userName">—</h2>
+              <p id="userIds">ID: —</p>
+              <div class="idrow">
+                <span class="tag" id="tagChallenge">Challenge: —</span>
+                <span class="tag" id="tagTasks">Tasks: —</span>
+              </div>
+            </div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi"><b id="k_total">—</b><span>Total check-ins</span></div>
+            <div class="kpi"><b id="k_todayCount">—</b><span>Today entries</span></div>
+            <div class="kpi"><b id="k_journals">—</b><span>Journals</span></div>
+          </div>
+        </div>
+        <div class="card ring-card">
+          <h3 style="align-self:stretch;text-align:left">Today's progress</h3>
+          <div class="ring" id="ring" style="--p:0"><div><b id="ringPct">0%</b><br/><small><span id="ringPts">0</span> / <span id="ringMax">20</span> pts</small></div></div>
+          <div class="muted" style="margin-top:10px;font-size:12px" id="ringLabel">Complete your daily tasks to fill the ring.</div>
+          <div style="display:flex;gap:8px;margin-top:12px;width:100%">
+            <button class="btn btn-prim" style="flex:1" onclick="go('checkin')">Check-in now</button>
+            <button class="btn btn-ghost" onclick="go('history')">View history</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>Daily points — last 14 days</h3>
+        <div class="chartwrap"><canvas id="pointsChart"></canvas></div>
+      </div>
+      <div class="grid" style="margin-top:14px">
+        <div class="card">
+          <h3>Quick actions</h3>
+          <div class="quick-grid">
+            <button class="quick-btn" onclick="go('checkin')"><span>✅ Check-in</span><small>Log today's tasks</small></button>
+            <button class="quick-btn" onclick="go('history')"><span>◷ History</span><small>All your entries</small></button>
+            <button class="quick-btn" onclick="go('journal')"><span>✎ Journal</span><small>Reflections & notes</small></button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Challenge</h3>
+          <div style="font-weight:800" id="chalTitle">Aroha Daily Practice</div>
+          <div class="muted" id="chalDesc" style="margin-top:6px;font-size:13px">One challenge for now.</div>
+        </div>
+      </div>
+    </section>
+    <!-- CHECKIN -->
+    <section id="tab-checkin" style="display:none">
+      <div class="card" style="margin-top:14px">
+        <h3>✅ Quick Check-in</h3>
+        <div class="muted">Tap a task to log it. Amount shown where it matters.</div>
+        <div id="tasks"></div>
+        <div style="height:1px;background:var(--line);margin:12px 0"></div>
+        <div style="display:grid;grid-template-columns:1fr 140px 140px;gap:8px">
+          <input id="customTask" class="btn btn-ghost" style="text-align:left" placeholder="Task id (e.g. T001)"/>
+          <input id="customAmt" class="btn btn-ghost" type="number" step="1" placeholder="Amount"/>
+          <button class="btn btn-prim" onclick="doCheckinCustom()">Check-in</button>
+        </div>
+        <div class="muted" style="margin-top:8px">Works via bot API — entry appears in Home & History instantly.</div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>🕒 Recent</h3>
+        <div id="recent"></div>
+      </div>
+    </section>
+    <!-- HISTORY -->
+    <section id="tab-history" style="display:none">
+      <div class="card" style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <h3>◷ History</h3>
+          <button class="btn btn-ghost" onclick="loadMoreHist()">Load more</button>
+        </div>
+        <div id="history"></div>
+        <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="loadMoreHist()">Load more</button>
+      </div>
+    </section>
+    <!-- JOURNAL -->
+    <section id="tab-journal" style="display:none">
+      <div class="card" style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3>✎ Journal</h3>
+          <button class="btn btn-ghost" onclick="loadJournals()">↻ Refresh</button>
+        </div>
+        <div id="journals"></div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if(tg){ try{ tg.ready(); tg.expand(); }catch(e){} }
+function qs(n){ try{ return new URL(window.location.href).searchParams.get(n) || ""; }catch(e){ return ""; } }
+let DATA_URL = qs("data_url");
+let CHECKIN_URL = qs("checkin_url");
+let HIST_URL = qs("hist_url");
+let JOUR_URL = qs("jour_url");
+let LEGACY_URL = qs("legacy_url");
+let UID = qs("uid") || (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && String(tg.initDataUnsafe.user.id)) || "";
+let UNAME = qs("name") || (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) || "";
+function toast(m){ const el=document.getElementById("toast"); el.textContent=m; el.style.display="block"; setTimeout(()=> el.style.display="none", 2600); }
+function showErr(m){ const el=document.getElementById("err"); el.textContent=m; el.style.display="block"; }
+function clearErr(){ const el=document.getElementById("err"); el.style.display="none"; el.textContent=""; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
+function unwrap(j){
+  if(!j || typeof j !== "object") return j;
+  if(j.result && typeof j.result === "object"){
+    if(j.result.ok!==undefined || j.result.stats!==undefined || j.result.tasks!==undefined || j.result.points!==undefined || j.result.journals!==undefined) return j.result;
+  }
+  return j;
+}
+let chartInst=null;
+function setRing(pct, pts, max){
+  const r=document.getElementById("ring");
+  const p=Math.max(0,Math.min(100, pct||0));
+  r.style.setProperty("--p", p);
+  document.getElementById("ringPct").textContent = p.toFixed(0)+"%";
+  document.getElementById("ringPts").textContent = pts;
+  document.getElementById("ringMax").textContent = max;
+}
+function toggleSide(force){
+  const s=document.getElementById("sidebar");
+  const o=document.getElementById("overlay");
+  const open = force!==undefined ? force : !s.classList.contains("open");
+  s.classList.toggle("open", open);
+  o.classList.toggle("show", open);
+}
+function go(tab){
+  document.querySelectorAll(".nav button").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
+  ["home","checkin","history","journal"].forEach(t=>{ const el=document.getElementById("tab-"+t); if(el) el.style.display = (t===tab? "block":"none"); });
+  const titles={home:["Home","Your growth, beautifully tracked."],checkin:["Check-in","Log what you actually did."],history:["History","All your entries by day."],journal:["Journal","Reflections & notes."]};
+  document.getElementById("pageTitle").textContent = titles[tab][0];
+  document.getElementById("pageSub").textContent = titles[tab][1];
+  toggleSide(false);
+  if(tab==="history" && histPage===0) loadHistory(true);
+  if(tab==="journal") loadJournals();
+  if(tg && tg.HapticFeedback) try{tg.HapticFeedback.impactOccurred("light");}catch(e){}
+}
+async function fetchHome(){
+  if(!DATA_URL){ showErr("DATA_URL missing — open via /minidemo (adds ?data_url=...) don't open bare URL"); return null; }
+  if(!UID){ showErr("No user id — open via Telegram button"); return null; }
+  const res = await fetch(DATA_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:UID})});
+  const raw=await res.text();
+  let j; try{ j=JSON.parse(raw);}catch(e){ throw new Error("Bad JSON home: "+raw.slice(0,500)); }
+  j=unwrap(j);
+  if(!j || j.ok===false) throw new Error(j.error || "home ok=false raw:"+raw.slice(0,400));
+  return j;
+}
+let histPage=0, histHasMore=true, histLoading=false;
+function histGroupDOM(groups){
+  const wrap=document.getElementById("history");
+  // if first load, clear
+  return groups;
+}
+async function loadHistory(reset){
+  if(histLoading) return;
+  if(reset){ histPage=0; histHasMore=true; document.getElementById("history").innerHTML=""; }
+  if(!histHasMore) { toast("No more history"); return; }
+  if(!HIST_URL){ showErr("HIST_URL missing — reopen via /minidemo"); return; }
+  histLoading=true;
+  try{
+    clearErr();
+    const res=await fetch(HIST_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:UID, page: histPage})});
+    const raw=await res.text();
+    let j; try{ j=JSON.parse(raw);}catch(e){ throw new Error("Bad JSON hist: "+raw.slice(0,400));}
+    j=unwrap(j);
+    if(!j || j.ok===false) throw new Error(j.error||"hist ok=false");
+    const groups = j.groups || [];
+    histHasMore = !!j.has_more;
+    const wrap=document.getElementById("history");
+    if(!groups.length && histPage===0){ wrap.innerHTML='<div class="muted">No entries yet.</div>'; }
+    groups.forEach(g=>{
+      const sec=document.createElement("div"); sec.className="hist-group";
+      const h=document.createElement("h4"); h.textContent = g.label + " • " + (g.items? g.items.length:0) + " entries"; sec.appendChild(h);
+      (g.items||[]).forEach(r=>{
+        const d=document.createElement("div"); d.className="hist-item";
+        let when=""; try{ when=new Date((r.timestamp||0)*1000).toLocaleString(); }catch(e){}
+        const left = "<b>"+esc(r.task||r.task_id||"")+"</b> <span style='color:var(--muted)'>"+esc(r.unit||"")+" ×"+esc(String(r.amount||""))+(r.value? " • "+esc(r.value):"")+"</span>";
+        d.innerHTML = "<span>"+left+"</span><small style='color:var(--muted)'>"+esc(when)+"</small>";
+        sec.appendChild(d);
+      });
+      wrap.appendChild(sec);
+    });
+    histPage += 1;
+    if(!histHasMore) toast("End of history");
+  }catch(e){ showErr(e.message||String(e)); }
+  histLoading=false;
+}
+function loadMoreHist(){ loadHistory(false); }
+async function loadJournals(){
+  try{
+    clearErr();
+    const wrap=document.getElementById("journals");
+    wrap.innerHTML='<div class="muted">Loading…</div>';
+    if(!JOUR_URL){ wrap.innerHTML='<div class="muted">No journal URL — reopen via /minidemo</div>'; return; }
+    const res=await fetch(JOUR_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:UID})});
+    const raw=await res.text();
+    let j; try{ j=JSON.parse(raw);}catch(e){ throw new Error("Bad JSON jour: "+raw.slice(0,400));}
+    j=unwrap(j);
+    if(!j || j.ok===false) throw new Error(j.error||"journals ok=false");
+    const list=j.journals||[];
+    if(!list.length){ wrap.innerHTML='<div class="muted">No journals yet. Use /journal or /reflect in the bot.</div>'; return; }
+    wrap.innerHTML="";
+    list.forEach(it=>{
+      const div=document.createElement("div"); div.className="journal";
+      const txt=it.text || it.content || it.journal || it.message || JSON.stringify(it).slice(0,300);
+      let when=""; try{ const ts=it.timestamp||it.created_at||it.date; if(ts) when=new Date((typeof ts==="number"? ts*1000: ts)).toLocaleString(); }catch(e){}
+      div.innerHTML = "<div style='font-weight:600'>"+esc(when||"Entry")+"</div><div class='muted' style='margin-top:6px;white-space:pre-wrap'>"+esc(String(txt).slice(0,900))+"</div>";
+      wrap.appendChild(div);
+    });
+  }catch(e){ showErr(e.message||String(e)); document.getElementById("journals").innerHTML='<div class="muted">Failed to load journals</div>'; }
+}
+async function reloadAll(){
+  try{
+    clearErr();
+    document.getElementById("statusPill").textContent="● Loading…";
+    const j=await fetchHome();
+    if(!j) return;
+    const user=j.user||{};
+    const stats=j.stats||{};
+    const today=j.today||{};
+    const chart=j.chart||[];
+    const recent=j.recent||[];
+    const chal=j.challenge||{};
+    const tasks=j.tasks||[];
+    // profile
+    const name = user.first_name || UNAME || "Aroha User";
+    document.getElementById("userName").textContent = name;
+    document.getElementById("userIds").textContent = "ID: " + (user.id || UID) + (user.username ? "  •  @" + user.username : "");
+    document.getElementById("avatar").textContent = (name.trim()[0]||"A").toUpperCase();
+    document.getElementById("tagChallenge").textContent = "Challenge: " + (chal.name || "Aroha Daily Practice");
+    document.getElementById("tagTasks").textContent = "Tasks: " + (stats.tasks_available ?? tasks.length);
+    document.getElementById("chalNameSide").textContent = chal.name || "Aroha Daily Practice";
+    document.getElementById("chalTitle").textContent = chal.name || "Aroha Daily Practice";
+    document.getElementById("chalDesc").textContent = chal.description || "One challenge for now — generalize later.";
+    document.getElementById("k_total").textContent = stats.total_checkins ?? recent.length;
+    document.getElementById("k_todayCount").textContent = stats.today_count ?? today.count ?? 0;
+    document.getElementById("k_journals").textContent = stats.journals ?? 0;
+    setRing(today.percent||0, today.points||0, today.max||20);
+    document.getElementById("ringLabel").textContent = (today.percent>=100? "Perfect! Today's goal complete ✅" : "Complete your daily tasks to fill the ring.");
+    // chart
+    const labels = chart.map(c=> c.label);
+    const points = chart.map(c=> c.points);
+    const ctx=document.getElementById("pointsChart").getContext("2d");
+    if(chartInst){ try{ chartInst.destroy(); }catch(e){} }
+    chartInst = new Chart(ctx, {
+      type:"line",
+      data:{ labels: labels, datasets:[{ label:"Points", data: points, tension:.4, fill:true, borderWidth:2, borderColor:"#7c5cff", backgroundColor:(ctx)=>{
+        const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);
+        g.addColorStop(0,"rgba(124,92,255,.35)"); g.addColorStop(1,"rgba(124,92,255,0)");
+        return g;
+      }, pointRadius:3, pointBackgroundColor:"#7c5cff"}]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ grid:{color:"rgba(255,255,255,.06)"}, ticks:{color:"#9aa0b8", maxTicksLimit:7}}, y:{ grid:{color:"rgba(255,255,255,.06)"}, ticks:{color:"#9aa0b8"}, beginAtZero:true}}}
+    });
+    // tasks for checkin tab
+    const tWrap=document.getElementById("tasks");
+    tWrap.innerHTML="";
+    if(!tasks.length){ tWrap.innerHTML='<div class="muted">No tasks yet</div>'; }
+    else{
+      tasks.forEach(function(t){
+        const div=document.createElement("div"); div.className="task";
+        const isQty = (t.unit==="hours" || t.unit==="litres" || t.unit==="minutes" || t.unit==="chants" || t.unit==="activity");
+        const unit = t.unit? " <small style='color:var(--muted)'>"+esc(t.unit)+"</small>":"";
+        const left=document.createElement("div"); left.innerHTML="<b>"+esc(t.name)+"</b><br/><small style='color:var(--muted)'>"+esc(t.id)+unit+" • "+esc(t.category||"")+"</small>";
+        const right=document.createElement("div"); right.style.display="flex"; right.style.gap="8px"; right.style.alignItems="center";
+        if(isQty){
+          const inp=document.createElement("input"); inp.className="btn btn-ghost"; inp.style.width="90px"; inp.type="number"; inp.step="1"; inp.value="1"; inp.id="amt_"+t.id;
+          right.appendChild(inp);
+        }
+        const btn=document.createElement("button"); btn.className="btn btn-prim"; btn.textContent="Check-in"; btn.onclick=function(){ doCheckin(t.id); };
+        right.appendChild(btn);
+        div.appendChild(left); div.appendChild(right); tWrap.appendChild(div);
+        const ct=document.getElementById("customTask"); if(ct && !ct.value) ct.value=t.id;
+      });
+    }
+    // recent
+    const rWrap=document.getElementById("recent");
+    rWrap.innerHTML="";
+    if(!recent.length) rWrap.innerHTML='<div class="muted">No check-ins yet. Do your first one above!</div>';
+    else recent.forEach(function(r){
+      let when=""; try{ when=new Date((r.timestamp||0)*1000).toLocaleString(); }catch(e){}
+      const div=document.createElement("div"); div.className="hist-item";
+      div.innerHTML="<span><b>"+esc(r.task||r.task_id||"")+"</b> <span style='color:var(--muted)'>"+esc(r.unit||"")+" ×"+esc(String(r.amount||""))+(r.value? " • "+esc(r.value):"")+"</span></span><small style='color:var(--muted)'>"+esc(when)+"</small>";
+      rWrap.appendChild(div);
+    });
+    document.getElementById("statusPill").textContent="● Live";
+    toast("Dashboard refreshed");
+  }catch(e){ showErr(e.message||String(e)); document.getElementById("statusPill").textContent="● Error"; }
+}
+async function doCheckin(taskId){
+  try{
+    if(!CHECKIN_URL){ toast("CHECKIN_URL missing — reopen via /minidemo"); return; }
+    let amt=1; const inp=document.getElementById("amt_"+taskId); if(inp) amt=parseFloat(inp.value)||1;
+    if(amt===0) amt=1;
+    const res=await fetch(CHECKIN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:UID, task_id:taskId, amount:amt})});
+    const raw=await res.text();
+    let j; try{ j=JSON.parse(raw);}catch(e){ throw new Error("Bad JSON checkin: "+raw.slice(0,400));}
+    j=unwrap(j);
+    if(!j || j.ok===false) throw new Error(j.error||"checkin failed");
+    toast("✅ " + (j.message || "Checked in"));
+    await reloadAll();
+  }catch(e){ showErr(e.message||String(e)); }
+}
+async function doCheckinCustom(){
+  const tid=(document.getElementById("customTask").value||"").trim();
+  const amt=parseFloat(document.getElementById("customAmt").value)||1;
+  if(!tid){ toast("Enter task id"); return; }
+  try{
+    const res=await fetch(CHECKIN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:UID, task_id:tid, amount:amt})});
+    const raw=await res.text();
+    let j; try{ j=JSON.parse(raw);}catch(e){ throw new Error("Bad JSON: "+raw.slice(0,400));}
+    j=unwrap(j);
+    if(!j || j.ok===false) throw new Error(j.error||"failed");
+    toast("✅ " + (j.message||"Checked in"));
+    await reloadAll();
+  }catch(e){ showErr(e.message||String(e)); }
+}
+reloadAll();
+</script>
+</body>
+</html>
